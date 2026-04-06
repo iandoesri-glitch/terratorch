@@ -439,7 +439,7 @@ class SegmentationIOProcessor(IOProcessor):
         else:
             temporal_coords = None
         if location_coords:
-            location_coords = torch.tensor(location_coords[0]).unsqueeze(0).to(torch.float16)
+            location_coords = torch.tensor(location_coords[0]).unsqueeze(0)
         else:
             location_coords = None
 
@@ -452,9 +452,33 @@ class SegmentationIOProcessor(IOProcessor):
             except:
                 window["image"] = window["image"][None, :, :, :]
                 window = self.datamodule.aug(window)["image"]
+            
+            if isinstance(window, dict):
+                window = window["image"]
+            if window.ndim == 5:
+                window = window[0]
+
+            if window.shape[0] >= 4:
+                pixel_values = window[:4, :, :].unsqueeze(0)
+            elif window.shape[0] == 1:
+                pixel_values = window.repeat(4, 1, 1).unsqueeze(0)
+            else:
+                raise ValueError(
+                    f"Unable to construct 4-channel input from window shape {window.shape}"
+                )
+
+            if pixel_values.shape[2:] != (256, 256):
+                pixel_values = torch.nn.functional.interpolate(
+                    pixel_values,
+                    size=(256, 256),
+                    mode="bilinear",
+                    align_corners=False,
+                )
+
+            pixel_values = pixel_values.squeeze(0)
 
             multi_modal_data = {
-                "pixel_values": window.to(torch.float16)[0],
+                "pixel_values": pixel_values,
             }
             # not all models use location coordinates, so we don't bother sending them to vLLM if not needed
             if "location_coords" in self.model_config["input"]["data"]:

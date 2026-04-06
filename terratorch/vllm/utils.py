@@ -74,7 +74,7 @@ class DummyDataGenerator:
         mm_data = {}
         for input_name, input in self.input_definition.data.items():
             if input.type == InputTypeEnum.tensor:
-                mm_data[input_name] = torch.full(input.shape, 1.0, dtype=torch.float16)
+                mm_data[input_name] = torch.full(input.shape, 1.0)
         return mm_data
 
 
